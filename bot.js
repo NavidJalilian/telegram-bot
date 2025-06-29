@@ -70,6 +70,12 @@ class EscrowBot {
     // Main menu callbacks
     this.bot.action('main_menu', startHandler.showMainMenu);
     this.bot.action('start_registration', startHandler.startRegistration);
+    this.bot.action('select_buyer_role', async (ctx) => {
+      await startHandler.handleRoleSelection(ctx, 'buyer');
+    });
+    this.bot.action('select_seller_role', async (ctx) => {
+      await startHandler.handleRoleSelection(ctx, 'seller');
+    });
     this.bot.action('back_to_menu', startHandler.showMainMenu);
 
     // Transaction initiation
@@ -143,12 +149,8 @@ class EscrowBot {
       const state = ctx.session?.state;
 
       switch (state) {
-        case 'registering_name':
-          await startHandler.handleNameInput(ctx);
-          break;
-          
-        case 'registering_phone':
-          await startHandler.handlePhoneInput(ctx);
+        case 'registering_post_id':
+          await startHandler.handlePostIdInput(ctx);
           break;
           
         case 'entering_price':

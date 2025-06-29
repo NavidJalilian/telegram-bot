@@ -115,6 +115,13 @@ class TextFilter {
     return nameRegex.test(name) && name.trim().length >= 2 && name.trim().length <= 50;
   }
 
+  // Check if post ID is valid
+  isValidPostId(postId) {
+    // Allow alphanumeric characters, minimum 3 characters, maximum 20 characters
+    const postIdRegex = /^[a-zA-Z0-9]+$/;
+    return postIdRegex.test(postId) && postId.trim().length >= 3 && postId.trim().length <= 20;
+  }
+
   // Sanitize input text
   sanitizeInput(text) {
     if (!text || typeof text !== 'string') {

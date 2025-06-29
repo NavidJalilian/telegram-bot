@@ -94,18 +94,18 @@ const showMainMenu = async (ctx) => {
 const startRegistration = async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    
-    await ctx.reply(fa.registration.enterName, {
+
+    await ctx.reply(fa.registration.enterPostId, {
       reply_markup: {
         inline_keyboard: [[
           { text: fa.cancel, callback_data: 'main_menu' }
         ]]
       }
     });
-    
+
     // Update session state
     await ctx.updateSession({
-      state: 'registering_name',
+      state: 'registering_post_id',
       data: {}
     });
   } catch (error) {
@@ -114,62 +114,64 @@ const startRegistration = async (ctx) => {
   }
 };
 
-// Handle name input during registration
-const handleNameInput = async (ctx) => {
+// Handle post ID input during registration
+const handlePostIdInput = async (ctx) => {
   try {
-    const name = ctx.message.text.trim();
-    
-    // Validate name
-    if (!textFilter.isValidName(name)) {
-      await ctx.reply(fa.registration.invalidName);
+    const postId = ctx.message.text.trim();
+
+    // Validate post ID
+    if (!textFilter.isValidPostId(postId)) {
+      await ctx.reply(fa.registration.invalidPostId);
       return;
     }
-    
-    // Store name in session
+
+    // Store post ID in session and move to role selection
     await ctx.updateSession({
-      state: 'registering_phone',
-      data: { name }
+      state: 'registering_role',
+      data: { postId }
     });
-    
-    await ctx.reply(fa.registration.enterPhone, {
+
+    await ctx.reply(fa.registration.selectRole, {
       reply_markup: {
-        inline_keyboard: [[
-          { text: fa.cancel, callback_data: 'main_menu' }
-        ]]
+        inline_keyboard: [
+          [
+            { text: fa.registration.buyerRole, callback_data: 'select_buyer_role' },
+            { text: fa.registration.sellerRole, callback_data: 'select_seller_role' }
+          ],
+          [
+            { text: fa.cancel, callback_data: 'main_menu' }
+          ]
+        ]
       }
     });
   } catch (error) {
-    console.error('Name input error:', error);
+    console.error('Post ID input error:', error);
     await ctx.reply(fa.errors.systemError);
   }
 };
 
-// Handle phone input during registration
-const handlePhoneInput = async (ctx) => {
+// Handle role selection during registration
+const handleRoleSelection = async (ctx, role) => {
   try {
-    const phone = ctx.message.text.trim();
-    
-    // Validate phone
-    if (!textFilter.isValidPhone(phone)) {
-      await ctx.reply(fa.registration.invalidPhone);
-      return;
-    }
-    
-    const name = ctx.session.data.name;
-    
-    // Complete registration
-    ctx.user.completeRegistration(name, phone);
+    await ctx.answerCbQuery();
+
+    const postId = ctx.session.data.postId;
+
+    // Complete registration immediately after role selection
+    ctx.user.completeRegistration(role, postId);
     await storage.saveUser(ctx.user);
-    
+
     await ctx.reply(fa.registration.success);
-    
+
     // Show main menu
     await showMainMenu(ctx);
   } catch (error) {
-    console.error('Phone input error:', error);
+    console.error('Role selection error:', error);
     await ctx.reply(fa.errors.systemError);
   }
 };
+
+
 
 // Show user profile
 const showProfile = async (ctx) => {
@@ -265,8 +267,8 @@ module.exports = {
   showMainMenu,
   showRegistrationPrompt,
   startRegistration,
-  handleNameInput,
-  handlePhoneInput,
+  handlePostIdInput,
+  handleRoleSelection,
   showProfile,
   showHelp
 };

@@ -8,7 +8,8 @@ class User {
     this.name = data.name || null;
     this.username = data.username || null;
     this.phone = data.phone || null;
-    this.role = data.role || 'user'; // user, admin
+    this.role = data.role || 'user'; // user, admin, buyer, seller
+    this.postId = data.postId || null; // Post ID for communication
     this.isRegistered = data.isRegistered || false;
     this.createdAt = data.createdAt || moment().toISOString();
     this.updatedAt = data.updatedAt || moment().toISOString();
@@ -59,9 +60,9 @@ class User {
   }
 
   // Complete registration
-  completeRegistration(name, phone) {
-    this.name = name;
-    this.phone = phone;
+  completeRegistration(role = 'user', postId = null) {
+    this.role = role;
+    this.postId = postId;
     this.isRegistered = true;
     this.updatedAt = moment().toISOString();
     return this;
@@ -127,21 +128,17 @@ class User {
   // Validate user data
   validate() {
     const errors = [];
-    
+
     if (!this.id) {
       errors.push('User ID is required');
     }
-    
+
     if (this.isRegistered) {
-      if (!this.name || this.name.trim().length < 2) {
-        errors.push('Name must be at least 2 characters');
-      }
-      
-      if (!this.phone || !/^09\d{9}$/.test(this.phone)) {
-        errors.push('Valid phone number is required');
+      if (!this.role || !['user', 'admin', 'buyer', 'seller'].includes(this.role)) {
+        errors.push('Valid role is required');
       }
     }
-    
+
     return {
       isValid: errors.length === 0,
       errors
@@ -157,6 +154,7 @@ class User {
       username: this.username,
       phone: this.phone,
       role: this.role,
+      postId: this.postId,
       isRegistered: this.isRegistered,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
