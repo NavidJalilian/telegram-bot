@@ -122,7 +122,7 @@ class User {
 
   // Get user display name
   getDisplayName() {
-    return this.name || this.username || `User ${this.id}`;
+    return this.username || `User ${this.id}`;
   }
 
   // Validate user data

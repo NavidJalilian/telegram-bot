@@ -39,15 +39,24 @@ const showRegistrationPrompt = async (ctx) => {
 const showMainMenu = async (ctx) => {
   try {
     await ctx.answerCbQuery?.();
-    
+
+    // Debug logging
+    console.log('Main menu - User registered:', ctx.user.isRegistered);
+    console.log('Main menu - User data:', {
+      id: ctx.user.id,
+      username: ctx.user.username,
+      role: ctx.user.role,
+      postId: ctx.user.postId
+    });
+
     const keyboard = [];
-    
+
     if (ctx.user.isRegistered) {
       keyboard.push([
         { text: fa.startSale, callback_data: 'start_sale' },
         { text: fa.startPurchase, callback_data: 'start_purchase' }
       ]);
-      
+
       keyboard.push([
         { text: fa.myTransactions, callback_data: 'my_transactions' }
       ]);
@@ -56,12 +65,12 @@ const showMainMenu = async (ctx) => {
         { text: fa.communication, callback_data: 'communication_menu' }
       ]);
     }
-    
+
     keyboard.push([
       { text: fa.help, callback_data: 'help' },
       { text: fa.support, url: 'https://t.me/support' }
     ]);
-    
+
     // Add admin panel for admins
     if (ctx.user.isAdmin()) {
       keyboard.push([
@@ -69,7 +78,7 @@ const showMainMenu = async (ctx) => {
       ]);
     }
 
-    const message = ctx.user.isRegistered 
+    const message = ctx.user.isRegistered
       ? `سلام ${ctx.user.getDisplayName()}! 👋\n\n${fa.mainMenu}:`
       : fa.welcome;
 
@@ -78,7 +87,7 @@ const showMainMenu = async (ctx) => {
         inline_keyboard: keyboard
       }
     });
-    
+
     // Reset session to idle
     await ctx.updateSession({
       state: SESSION_STATES.IDLE,
@@ -86,6 +95,8 @@ const showMainMenu = async (ctx) => {
     });
   } catch (error) {
     console.error('Main menu error:', error);
+    console.error('Error details:', error.message);
+    console.error('Stack trace:', error.stack);
     await ctx.reply(fa.errors.systemError);
   }
 };
@@ -155,7 +166,17 @@ const handleRoleSelection = async (ctx, role) => {
   try {
     await ctx.answerCbQuery();
 
-    const postId = ctx.session.data.postId;
+    // Debug logging
+    console.log('Role selection - Session data:', ctx.session?.data);
+    console.log('Role selection - Selected role:', role);
+
+    const postId = ctx.session?.data?.postId;
+
+    if (!postId) {
+      console.error('No postId found in session data');
+      await ctx.reply('❌ خطا در دریافت شناسه پست. لطفاً مجدداً تلاش کنید.');
+      return;
+    }
 
     // Complete registration immediately after role selection
     ctx.user.completeRegistration(role, postId);
@@ -167,6 +188,8 @@ const handleRoleSelection = async (ctx, role) => {
     await showMainMenu(ctx);
   } catch (error) {
     console.error('Role selection error:', error);
+    console.error('Error details:', error.message);
+    console.error('Stack trace:', error.stack);
     await ctx.reply(fa.errors.systemError);
   }
 };
