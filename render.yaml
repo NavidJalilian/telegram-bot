@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: telegram-escrow-bot
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_USER_IDS
+        sync: false
