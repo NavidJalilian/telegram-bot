@@ -18,15 +18,21 @@ const contentFilter = () => {
         return next();
       }
 
-      // Check for sensitive information
-      if (textFilter.containsSensitiveInfo(text)) {
+      // Check for sensitive information (only block obvious security risks)
+      const detectedPatterns = textFilter.getDetectedPatterns(text);
+      const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(text);
+      const hasCardNumber = /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/.test(text);
+      const hasPassword = /(?:رمز|پسورد|password|pass)[\s:=]+[^\s]+/gi.test(text);
+
+      // Only block if contains actual sensitive data
+      if (hasEmail || hasCardNumber || hasPassword) {
         const warning = textFilter.getFilterWarning(text);
-        
+
         // Log the filtered content
         console.warn(`Content filtered for user ${ctx.from.id}:`, {
           userId: ctx.from.id,
           text: textFilter.cleanText(text),
-          detectedPatterns: textFilter.getDetectedPatterns(text)
+          reason: hasEmail ? 'email' : hasCardNumber ? 'card' : 'password'
         });
 
         // Send warning to user

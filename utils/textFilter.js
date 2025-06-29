@@ -4,27 +4,25 @@ class TextFilter {
   constructor() {
     this.filters = CONTENT_FILTERS;
     this.suspiciousPatterns = [
-      // English patterns
-      /(?:email|mail|gmail|yahoo|hotmail)[\s:=]*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi,
-      /(?:password|pass|pwd|login|username|user)[\s:=]*[^\s]+/gi,
-      /(?:account|acc|id)[\s:=]*[a-zA-Z0-9._-]+/gi,
-      
-      // Persian patterns
-      /(?:ایمیل|میل|جیمیل)[\s:=]*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi,
+      // Email patterns (only when followed by actual email)
+      /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi,
+
+      // Password patterns (only when explicitly mentioned with credentials)
       /(?:رمز|پسورد|کلمه.*عبور|پس.*ورد)[\s:=]*[^\s]+/gi,
-      /(?:آی.*دی|شناسه|اکانت)[\s:=]*[a-zA-Z0-9._-]+/gi,
-      
-      // Card numbers
+      /(?:password|pass|pwd)[\s:=]+[^\s]+/gi,
+
+      // Account ID patterns (only when explicitly mentioned with IDs)
+      /(?:آی.*دی|شناسه)[\s:=]*[a-zA-Z0-9._-]+/gi,
+      /(?:account.*id|user.*id)[\s:=]+[a-zA-Z0-9._-]+/gi,
+
+      // Card numbers (always filter these)
       /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g,
-      
-      // Phone numbers
+
+      // Phone numbers (Iranian format)
       /(?:\+98|0098|09)\d{9}/g,
-      
-      // Common gaming account patterns
-      /(?:clash|coc|supercell|gmail)[\s._-]*[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+/gi,
-      
-      // Suspicious keywords
-      /(?:verification|verify|code|کد.*تایید|کد.*تأیید|تایید|تأیید)/gi
+
+      // Gaming account patterns (only when combined with email)
+      /(?:clash|coc|supercell|gmail)[\s._-]*[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+/gi
     ];
   }
 
@@ -112,8 +110,8 @@ class TextFilter {
 
   // Check if text contains only allowed characters for names
   isValidName(name) {
-    // Allow Persian, Arabic, and English letters, spaces, and common punctuation
-    const nameRegex = /^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z\s\-.']+$/;
+    // Allow Persian, Arabic, English letters, numbers, spaces, and common punctuation
+    const nameRegex = /^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z0-9\s\-.'_]+$/;
     return nameRegex.test(name) && name.trim().length >= 2 && name.trim().length <= 50;
   }
 
@@ -142,20 +140,17 @@ class TextFilter {
     }
 
     const spamPatterns = [
-      // Repeated characters
-      /(.)\1{10,}/g,
-      
-      // Excessive caps
-      /[A-Z]{20,}/g,
-      
+      // Repeated characters (excessive repetition)
+      /(.)\1{15,}/g,
+
+      // Excessive caps (very long all-caps text)
+      /[A-Z]{50,}/g,
+
       // Excessive punctuation
-      /[!?]{5,}/g,
-      
-      // Common spam words
-      /(?:free|win|winner|prize|money|cash|urgent|limited|offer)/gi,
-      
-      // Persian spam patterns
-      /(?:رایگان|برنده|جایزه|پول|نقد|فوری|محدود|پیشنهاد)/gi
+      /[!?]{10,}/g,
+
+      // Persian spam patterns (only obvious spam)
+      /(?:رایگان.*رایگان|برنده.*برنده|پول.*پول|فوری.*فوری)/gi
     ];
 
     return spamPatterns.some(pattern => pattern.test(text));
@@ -193,32 +188,31 @@ class TextFilter {
 
   // Generate warning message for filtered content
   getFilterWarning(text) {
-    const detectedPatterns = this.getDetectedPatterns(text);
-    
-    if (detectedPatterns.length === 0) {
-      return null;
-    }
-
     let warning = '🚫 متن شما حاوی اطلاعات حساس است:\n\n';
-    
+    let hasIssue = false;
+
     if (this.filters.EMAIL_PATTERN.test(text)) {
       warning += '• آدرس ایمیل شناسایی شد\n';
+      hasIssue = true;
     }
-    
+
     if (this.filters.PASSWORD_PATTERN.test(text)) {
       warning += '• رمز عبور شناسایی شد\n';
+      hasIssue = true;
     }
-    
-    if (this.filters.ACCOUNT_ID_PATTERN.test(text)) {
-      warning += '• شناسه اکانت شناسایی شد\n';
-    }
-    
-    if (this.filters.PHONE_PATTERN.test(text)) {
-      warning += '• شماره تلفن شناسایی شد\n';
-    }
-    
+
     if (this.filters.CARD_NUMBER_PATTERN.test(text)) {
       warning += '• شماره کارت شناسایی شد\n';
+      hasIssue = true;
+    }
+
+    if (this.filters.PHONE_PATTERN.test(text)) {
+      warning += '• شماره تلفن شناسایی شد\n';
+      hasIssue = true;
+    }
+
+    if (!hasIssue) {
+      return null;
     }
 
     warning += '\n⚠️ لطفاً از ارسال اطلاعات شخصی در چت خودداری کنید. ربات این اطلاعات را به صورت امن مدیریت می‌کند.';

@@ -221,13 +221,19 @@ class Validator {
     return textFilter.sanitizeInput(input);
   }
 
-  // Check content safety
+  // Check content safety (more permissive)
   static checkContentSafety(text) {
     const safetyScore = textFilter.getContentSafetyScore(text);
-    const containsSensitive = textFilter.containsSensitiveInfo(text);
-    
+
+    // Only check for actual sensitive data (emails, cards, passwords)
+    const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(text);
+    const hasCardNumber = /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/.test(text);
+    const hasPassword = /(?:رمز|پسورد|password|pass)[\s:=]+[^\s]+/gi.test(text);
+
+    const containsSensitive = hasEmail || hasCardNumber || hasPassword;
+
     return {
-      isSafe: safetyScore >= 70 && !containsSensitive,
+      isSafe: safetyScore >= 50 && !containsSensitive,
       score: safetyScore,
       containsSensitive,
       warning: containsSensitive ? textFilter.getFilterWarning(text) : null
