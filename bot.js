@@ -28,6 +28,7 @@ const paymentHandler = require('./handlers/payment');
 const transferHandler = require('./handlers/transfer');
 const buyerVerificationHandler = require('./handlers/buyerVerification');
 const finalVerificationHandler = require('./handlers/finalVerification');
+const communicationHandler = require('./handlers/communication');
 const adminHandler = require('./handlers/admin');
 
 class EscrowBot {
@@ -75,6 +76,17 @@ class EscrowBot {
     this.bot.action('start_sale', requireRegistration(), initiateHandler.startSale);
     this.bot.action('start_purchase', requireRegistration(), initiateHandler.startPurchase);
     this.bot.action('my_transactions', requireRegistration(), initiateHandler.showMyTransactions);
+
+    // Communication system
+    this.bot.action('communication_menu', requireRegistration(), communicationHandler.showCommunicationMenu);
+    this.bot.action('join_chat', communicationHandler.startJoinChat);
+    this.bot.action('create_chat', communicationHandler.createNewChat);
+    this.bot.action('my_chats', communicationHandler.showMyChats);
+    this.bot.action('send_message', communicationHandler.startSendMessage);
+    this.bot.action(/^open_chat_(.+)$/, this.openSpecificChat.bind(this));
+    this.bot.action('back_to_chat', this.backToCurrentChat.bind(this));
+    this.bot.action('refresh_chat', this.refreshCurrentChat.bind(this));
+    this.bot.action('leave_chat', this.leaveCurrentChat.bind(this));
 
     // Account type selection
     this.bot.action(/^account_type_(.+)$/, initiateHandler.selectAccountType);
@@ -162,7 +174,15 @@ class EscrowBot {
         case 'entering_buyer_issue':
           await buyerVerificationHandler.handleBuyerIssueInput(ctx);
           break;
-          
+
+        case 'entering_post_id':
+          await communicationHandler.handlePostIdInput(ctx);
+          break;
+
+        case 'sending_message':
+          await communicationHandler.handleMessageInput(ctx);
+          break;
+
         default:
           // Default response for unhandled text
           await ctx.reply('لطفاً از منوی ارائه شده استفاده کنید.', {
@@ -225,16 +245,135 @@ class EscrowBot {
   async cancelOperation(ctx) {
     try {
       await ctx.answerCbQuery();
-      
+
       // Reset session to idle
       await ctx.updateSession({
         state: 'idle',
         data: {}
       });
-      
+
       await startHandler.showMainMenu(ctx);
     } catch (error) {
       console.error('Cancel operation error:', error);
+      await ctx.reply(fa.errors.systemError);
+    }
+  }
+
+  // Communication helper methods
+  async openSpecificChat(ctx) {
+    try {
+      await ctx.answerCbQuery();
+
+      const chatId = ctx.match[1];
+      const storage = require('./utils/storage');
+      const ChatRoom = require('./models/ChatRoom');
+
+      const chatRoomData = await storage.getChatRoom(chatId);
+      if (!chatRoomData) {
+        await ctx.reply('❌ گفتگو یافت نشد.');
+        return;
+      }
+
+      const room = ChatRoom.fromJSON(chatRoomData);
+
+      // Update session
+      await ctx.updateSession({
+        state: 'in_chat',
+        data: {
+          currentChatId: room.id,
+          postId: room.postId
+        }
+      });
+
+      await communicationHandler.showChatInterface(ctx, room);
+    } catch (error) {
+      console.error('Open specific chat error:', error);
+      await ctx.reply(fa.errors.systemError);
+    }
+  }
+
+  async backToCurrentChat(ctx) {
+    try {
+      await ctx.answerCbQuery();
+
+      const chatId = ctx.session?.data?.currentChatId;
+      if (!chatId) {
+        await ctx.reply('❌ گفتگو یافت نشد.');
+        return;
+      }
+
+      const storage = require('./utils/storage');
+      const ChatRoom = require('./models/ChatRoom');
+
+      const chatRoomData = await storage.getChatRoom(chatId);
+      if (!chatRoomData) {
+        await ctx.reply('❌ گفتگو یافت نشد.');
+        return;
+      }
+
+      const room = ChatRoom.fromJSON(chatRoomData);
+      await communicationHandler.showChatInterface(ctx, room);
+    } catch (error) {
+      console.error('Back to current chat error:', error);
+      await ctx.reply(fa.errors.systemError);
+    }
+  }
+
+  async refreshCurrentChat(ctx) {
+    try {
+      await ctx.answerCbQuery('🔄 بروزرسانی...');
+      await this.backToCurrentChat(ctx);
+    } catch (error) {
+      console.error('Refresh current chat error:', error);
+      await ctx.reply(fa.errors.systemError);
+    }
+  }
+
+  async leaveCurrentChat(ctx) {
+    try {
+      await ctx.answerCbQuery();
+
+      const chatId = ctx.session?.data?.currentChatId;
+      if (!chatId) {
+        await ctx.reply('❌ گفتگو یافت نشد.');
+        return;
+      }
+
+      const storage = require('./utils/storage');
+      const ChatRoom = require('./models/ChatRoom');
+
+      const chatRoomData = await storage.getChatRoom(chatId);
+      if (!chatRoomData) {
+        await ctx.reply('❌ گفتگو یافت نشد.');
+        return;
+      }
+
+      const room = ChatRoom.fromJSON(chatRoomData);
+      const result = room.removeParticipant(ctx.user.id);
+
+      if (result.success) {
+        await storage.saveChatRoom(room);
+
+        // Reset session
+        await ctx.updateSession({
+          state: 'idle',
+          data: {}
+        });
+
+        await ctx.reply('✅ از گفتگو خارج شدید.', {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🔙 بازگشت به منو', callback_data: 'communication_menu' }
+              ]
+            ]
+          }
+        });
+      } else {
+        await ctx.reply('❌ خطا در خروج از گفتگو.');
+      }
+    } catch (error) {
+      console.error('Leave current chat error:', error);
       await ctx.reply(fa.errors.systemError);
     }
   }

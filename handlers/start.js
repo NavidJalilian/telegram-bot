@@ -51,6 +51,10 @@ const showMainMenu = async (ctx) => {
       keyboard.push([
         { text: fa.myTransactions, callback_data: 'my_transactions' }
       ]);
+
+      keyboard.push([
+        { text: fa.communication, callback_data: 'communication_menu' }
+      ]);
     }
     
     keyboard.push([

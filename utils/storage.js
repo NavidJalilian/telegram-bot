@@ -7,6 +7,7 @@ class Storage {
     this.dataPath = config.storage.path;
     this.usersPath = path.join(this.dataPath, 'users');
     this.transactionsPath = path.join(this.dataPath, 'transactions');
+    this.chatRoomsPath = path.join(this.dataPath, 'chatrooms');
     this.sessionsPath = path.join(this.dataPath, 'sessions');
     this.logsPath = path.join(this.dataPath, 'logs');
     this.backupsPath = path.join(this.dataPath, 'backups');
@@ -20,6 +21,7 @@ class Storage {
       await fs.ensureDir(this.dataPath);
       await fs.ensureDir(this.usersPath);
       await fs.ensureDir(this.transactionsPath);
+      await fs.ensureDir(this.chatRoomsPath);
       await fs.ensureDir(this.sessionsPath);
       await fs.ensureDir(this.logsPath);
       await fs.ensureDir(this.backupsPath);
@@ -244,6 +246,7 @@ class Storage {
       await fs.ensureDir(backupDir);
       await fs.copy(this.usersPath, path.join(backupDir, 'users'));
       await fs.copy(this.transactionsPath, path.join(backupDir, 'transactions'));
+      await fs.copy(this.chatRoomsPath, path.join(backupDir, 'chatrooms'));
       await fs.copy(this.sessionsPath, path.join(backupDir, 'sessions'));
       
       // Create backup info file
@@ -277,6 +280,7 @@ class Storage {
       // Restore data
       await fs.copy(path.join(backupDir, 'users'), this.usersPath);
       await fs.copy(path.join(backupDir, 'transactions'), this.transactionsPath);
+      await fs.copy(path.join(backupDir, 'chatrooms'), this.chatRoomsPath);
       await fs.copy(path.join(backupDir, 'sessions'), this.sessionsPath);
       
       return true;
@@ -304,6 +308,95 @@ class Storage {
       return true;
     } catch (error) {
       console.error('Failed to cleanup old backups:', error);
+      return false;
+    }
+  }
+
+  // Chat room storage methods
+  async saveChatRoom(chatRoom) {
+    try {
+      const filePath = path.join(this.chatRoomsPath, `${chatRoom.id}.json`);
+      await fs.writeJson(filePath, chatRoom.toJSON(), { spaces: 2 });
+      return true;
+    } catch (error) {
+      console.error('Failed to save chat room:', error);
+      return false;
+    }
+  }
+
+  async getChatRoom(chatRoomId) {
+    try {
+      const filePath = path.join(this.chatRoomsPath, `${chatRoomId}.json`);
+      const exists = await fs.pathExists(filePath);
+
+      if (!exists) {
+        return null;
+      }
+
+      const chatRoomData = await fs.readJson(filePath);
+      return chatRoomData;
+    } catch (error) {
+      console.error('Failed to get chat room:', error);
+      return null;
+    }
+  }
+
+  async getChatRoomByPostId(postId) {
+    try {
+      const files = await fs.readdir(this.chatRoomsPath);
+
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const chatRoomData = await fs.readJson(path.join(this.chatRoomsPath, file));
+          if (chatRoomData.postId === postId) {
+            return chatRoomData;
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Failed to get chat room by post ID:', error);
+      return null;
+    }
+  }
+
+  async getAllChatRooms() {
+    try {
+      const files = await fs.readdir(this.chatRoomsPath);
+      const chatRooms = [];
+
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const chatRoomData = await fs.readJson(path.join(this.chatRoomsPath, file));
+          chatRooms.push(chatRoomData);
+        }
+      }
+
+      return chatRooms;
+    } catch (error) {
+      console.error('Failed to get all chat rooms:', error);
+      return [];
+    }
+  }
+
+  async getUserChatRooms(userId) {
+    try {
+      const allChatRooms = await this.getAllChatRooms();
+      return allChatRooms.filter(room => room.participants.includes(userId));
+    } catch (error) {
+      console.error('Failed to get user chat rooms:', error);
+      return [];
+    }
+  }
+
+  async deleteChatRoom(chatRoomId) {
+    try {
+      const filePath = path.join(this.chatRoomsPath, `${chatRoomId}.json`);
+      await fs.remove(filePath);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete chat room:', error);
       return false;
     }
   }
